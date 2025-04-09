@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Purdue Dining Map</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    #top-bar {
+      background-color: #eaeaea;
+      padding: 10px 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #ccc;
+    }
+    #main {
+      display: flex;
+      flex: 1;
+    }
+    #sidebar {
+      width: 250px;
+      background-color: #f3f3f3;
+      padding: 1rem;
+      border-right: 1px solid #ccc;
+    }
+    #map-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background-color: #fff;
+      border-left: 2px solid #ccc;
+    }
+    #zoom-controls {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 10;
+    }
+    #zoom-controls button {
+      padding: 10px;
+      font-size: 18px;
+      background-color: #2e3440;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #zoom-controls button:hover {
+      background-color: #4c566a;
+    }
+    svg circle.location-dot {
+      stroke: black;
+      stroke-width: 1;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="top-bar">
+    <label for="day-select">Day:</label>
+    <select id="day-select">
+      <option value="Friday">Friday</option>
+      <option value="Saturday">Saturday</option>
+      <option value="Sunday">Sunday</option>
+    </select>
+    <label for="time-slider">Time:</label>
+    <input type="range" id="time-slider" min="360" max="1439" value="720" step="15" />
+    <span id="current-time-label">12:00 PM</span>
+  </div>
+
+  <div id="main">
+    <div id="sidebar">
+      <h2>Building Info</h2>
+      <div id="info">Click a bubble to see hours.</div>
+    </div>
+    <div id="map-container">
+      <div id="zoom-controls">
+        <button id="zoom-in">+</button>
+        <button id="zoom-out">−</button>
+      </div>
+      <div id="svg-container"></div>
+    </div>
+  </div>
+
+  <script>
+    // Sample data – Add more buildings as needed
+    const buildingHours = {
+        "Earhart on the go": {
+            Friday: ["06:30-17:00"],
+            Saturday: [],
+            Sunday: []
+        },
+        "Windsor on the go": {
+            Friday: ["06:30-19:00"],
+            Saturday: [],
+            Sunday: []
+        },
+        "Lawson on the go": {
+            Friday: ["07:30-17:00"],
+            Saturday: [],
+            Sunday: []
+        },
+        "Ford on the go": {
+            Friday: ["06:30-17:00"],
+            Saturday: ["17:00-19:00"],
+            Sunday: []
+        },
+        "PMU restaurants": {
+            Friday: ["11:00-20:00"],
+            Saturday: ["11:00-20:00"],
+            Sunday: ["11:00-20:00"]
+        },
+        "Walk ons PMU": {
+            Friday: ["11:00-22:00"],
+            Saturday: ["11:00-22:00"],
+            Sunday: ["11:00-21:00"]
+        },
+        "Harrison Grill": {
+            Friday: ["17:00-01:00"],
+            Saturday: ["17:00-01:00"],
+            Sunday: ["17:00-01:00"]
+        },
+        "Panera": {
+            Friday: ["09:00-20:00"],
+            Saturday: [],
+            Sunday: ["09:00-20:00"]
+        },
+        "Qdoba": {
+            Friday: ["10:30-20:00"],
+            Saturday: ["10:30-20:00"],
+            Sunday: ["10:30-20:00"]
+        },
+        "Au bon pain": {
+            Friday: ["08:00-17:00"],
+            Saturday: [],
+            Sunday: ["12:00-17:00"]
+        },
+        "Saladworks": {
+            Friday: ["11:00-15:00"],
+            Saturday: [],
+            Sunday: []
+        },
+        "Freshen": {
+            Friday: ["09:00-20:00"],
+            Saturday: ["12:00-18:00"],
+            Sunday: ["12:00-18:00"]
+        },
+        "Jersey Mikes": {
+            Friday: ["10:00-21:00"],
+            Saturday: ["10:00-21:00"],
+            Sunday: ["10:00-21:00"]
+        },
+        "Saxbys": {
+            Friday: ["07:30-18:00"],
+            Saturday: ["07:30-18:00"],
+            Sunday: ["07:30-18:00"]
+        },
+        "Cary knight spot": {
+            Friday: ["08:00-14:00"],
+            Saturday: ["08:00-14:00"],
+            Sunday: ["17:00-01:00"]
+        },
+        "Starbucks at Winifred Parker": {
+            Friday: ["07:00-22:00"],
+            Saturday: ["10:00-20:00"],
+            Sunday: ["10:00-20:00"]
+        },
+        "Starbucks Northwestern": {
+            Friday: ["07:00-18:00"],
+            Saturday: [],
+            Sunday: ["11:00-16:00"]
+        },
+        "Boilermarket at PMU": {
+            Friday: ["07:00-22:00"],
+            Saturday: ["10:00-22:00"],
+            Sunday: ["10:00-22:00"]
+        },
+        "3rd Street market": {
+            Friday: ["08:00-22:00"],
+            Saturday: ["10:00-22:00"],
+            Sunday: ["10:00-22:00"]
+        },
+        "Ford": {
+            Friday: ["07:00-10:00", "11:00-14:00", "17:00-21:00"],
+            Saturday: ["08:00-10:00", "11:00-14:00"],
+            Sunday: ["08:00-10:00", "11:00-14:00", "17:00-21:00"]
+        },
+        "Wiley": {
+            Friday: ["07:00-10:00", "11:00-14:00", "17:00-21:00"],
+            Saturday: ["11:00-14:00", "17:00-21:00"],
+            Sunday: ["17:00-21:00"]
+        },
+        "Windsor": {
+            Friday: ["10:00-16:00"],
+            Saturday: ["14:00-21:00"],
+            Sunday: ["11:00-21:00"]
+        },
+        "Earhart": {
+            Friday: ["07:00-10:00", "11:00-14:00", "17:00-21:00"],
+            Saturday: ["11:00-14:00", "17:00-21:00"],
+            Sunday: ["11:00-14:00", "17:00-21:00"]
+        },
+        "Hillenbrand": {
+            Friday: [],
+            Saturday: [],
+            Sunday: ["10:00-16:00"]
+        },
+        "One bowl/Sushi boss": {
+            Friday: ["11:00-14:00", "17:00-20:00"],
+            Saturday: ["17:00-20:00"],
+            Sunday: []
+        },
+        "Pete’s Za": {
+            Friday: ["11:00-21:00"],
+            Saturday: ["17:00-21:00"],
+            Sunday: []
+        }
+    };
+
+
+    const buildingPositions = {
+        "Earhart on the go": { x: 333, y: 319 },
+        "Windsor on the go": { x: 326, y: 322 },
+        "Lawson on the go": { x: 461, y: 289 },
+        "Ford on the go": { x: 418, y: 213 },
+        "PMU restaurants": { x: 555, y: 324 },
+        "Walk ons PMU": { x: 554, y: 338 },
+        "Harrison Grill": { x: 307, y: 330 },
+        "Panera": { x: 370, y: 321 },
+        "Qdoba": { x: 373, y: 312 },
+        "Au bon pain": { x: 526, y: 297 },
+        "Saladworks": { x: 481, y: 274 },
+        "Freshen": { x: 379, y: 271 },
+        "Jersey Mikes": { x: 421, y: 275 },
+        "Saxbys": { x: 486, y: 234 },
+        "Cary knight spot": { x: 459, y: 221 },
+        "Starbucks at Winifred Parker": { x: 419, y: 290 },
+        "Starbucks Northwestern": { x: 533, y: 259 },
+        "Boilermarket at PMU": { x: 562, y: 332 },
+        "3rd Street market": { x: 410, y: 289 },
+        "Ford": { x: 419, y: 223 },
+        "Wiley": { x: 398, y: 273 },
+        "Windsor": { x: 421, y: 329 },
+        "Earhart": { x: 200, y: 300 },
+        "Hillenbrand": { x: 304, y: 304 },
+        "One bowl/Sushi boss": { x: 362, y: 299 },
+        "Pete’s Za": { x: 401, y: 239 }
+    };
+
+
+    let svg, viewBox, mapGroup;
+
+    function timeToMinutes(t) {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    function minutesToTime(m) {
+      const h = Math.floor(m / 60);
+      const min = m % 60;
+      const suffix = h >= 12 ? "PM" : "AM";
+      const hr = ((h + 11) % 12 + 1);
+      return `${hr}:${min.toString().padStart(2, "0")} ${suffix}`;
+    }
+
+    function isOpenAt(timeMinutes, ranges) {
+      return ranges.some(range => {
+        const [start, end] = range.split("-").map(timeToMinutes);
+        return timeMinutes >= start && timeMinutes < end;
+      });
+    }
+
+    function formatHours(ranges) {
+      return ranges.map(range => {
+        const [start, end] = range.split("-");
+        return `${formatAMPM(start)} – ${formatAMPM(end)}`;
+      }).join("<br>");
+    }
+
+    function formatAMPM(time) {
+      const [h, m] = time.split(":").map(Number);
+      const suffix = h >= 12 ? "PM" : "AM";
+      const hr = ((h + 11) % 12 + 1);
+      return `${hr}:${m.toString().padStart(2, "0")} ${suffix}`;
+    }
+
+    function drawBubbles(day, minutes) {
+      svg.querySelectorAll(".location-dot").forEach(el => el.remove());
+
+      for (const [name, pos] of Object.entries(buildingPositions)) {
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        group.setAttribute("class", "location-dot");
+        group.setAttribute("cx", pos.x);
+        group.setAttribute("cy", pos.y);
+        group.setAttribute("r", 8);
+
+        const open = isOpenAt(minutes, buildingHours[name]?.[day] || []);
+        group.setAttribute("fill", open ? "#b6e3b6" : "#f4a5a5");
+
+        group.addEventListener("click", () => {
+          const info = document.getElementById("info");
+          const hours = buildingHours[name]?.[day];
+          info.innerHTML = `<strong>${name}</strong><br>${
+            hours ? formatHours(hours) : "No hours available"
+          }`;
+        });
+
+        svg.appendChild(group);
+      }
+    }
+
+    fetch("purdue_map.svg")
+        .then(res => res.text())
+        .then(svgText => {
+            document.getElementById("svg-container").innerHTML = svgText;
+            svg = document.querySelector("#svg-container svg");
+            svg.setAttribute("id", "map");
+
+            if (!svg.hasAttribute("viewBox")) {
+            svg.setAttribute("viewBox", "0 0 1000 1000");
+            }
+
+            const vb = svg.getAttribute("viewBox").split(" ").map(Number);
+            viewBox = { x: vb[0], y: vb[1], w: vb[2], h: vb[3] };
+
+            setupPanAndZoom(svg);
+
+            const timeSlider = document.getElementById("time-slider");
+            const daySelect = document.getElementById("day-select");
+            const timeLabel = document.getElementById("current-time-label");
+
+            function updateAll() {
+            const minutes = parseInt(timeSlider.value);
+            const day = daySelect.value;
+            timeLabel.textContent = minutesToTime(minutes);
+            drawBubbles(day, minutes);
+            document.getElementById("info").innerHTML = "Click a bubble to see hours.";
+            }
+
+            timeSlider.addEventListener("input", updateAll);
+            daySelect.addEventListener("change", updateAll);
+            updateAll();
+
+            // TEMPORARY: Log x/y coordinates on click
+            svg.addEventListener("click", (e) => {
+            const pt = svg.createSVGPoint();
+            pt.x = e.clientX;
+            pt.y = e.clientY;
+            const cursorpt = pt.matrixTransform(svg.getScreenCTM().inverse());
+            console.log(`{ x: ${Math.round(cursorpt.x)}, y: ${Math.round(cursorpt.y)} }`);
+            });
+        })
+        .catch(err => {
+            console.error("Error loading SVG:", err);
+            document.getElementById("svg-container").textContent = "Error loading map.";
+        });
+
+
+      function setupPanAndZoom(svg) {
+        let isDragging = false;
+        let startX, startY;
+
+        const originalViewBox = svg.getAttribute("viewBox").split(" ").map(Number);
+        let viewBox = {
+            x: originalViewBox[0],
+            y: originalViewBox[1],
+            w: originalViewBox[2],
+            h: originalViewBox[3]
+        };
+
+        const MAX_ZOOM_WIDTH = originalViewBox[2] * 1.1;  // Can't zoom out more than 110%
+        const MIN_ZOOM_WIDTH = originalViewBox[2] / 10;   // Can zoom in up to 10x
+
+        function clampViewBoxWithinBounds() {
+            const maxX = originalViewBox[0] + originalViewBox[2] - viewBox.w;
+            const maxY = originalViewBox[1] + originalViewBox[3] - viewBox.h;
+
+            // Clamp so we can't pan too far in any direction
+            viewBox.x = Math.max(originalViewBox[0], Math.min(viewBox.x, maxX));
+            viewBox.y = Math.max(originalViewBox[1], Math.min(viewBox.y, maxY));
+        }
+
+        function updateViewBox() {
+            clampViewBoxWithinBounds();
+            svg.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+        }
+
+        svg.addEventListener("mousedown", e => {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            svg.style.cursor = "grabbing";
+        });
+
+        svg.addEventListener("mouseup", () => {
+            isDragging = false;
+            svg.style.cursor = "grab";
+        });
+
+        svg.addEventListener("mouseleave", () => {
+            isDragging = false;
+            svg.style.cursor = "grab";
+        });
+
+        svg.addEventListener("mousemove", e => {
+            if (!isDragging) return;
+            const dx = (e.clientX - startX) * (viewBox.w / svg.clientWidth);
+            const dy = (e.clientY - startY) * (viewBox.h / svg.clientHeight);
+            viewBox.x -= dx;
+            viewBox.y -= dy;
+            startX = e.clientX;
+            startY = e.clientY;
+            updateViewBox();
+        });
+
+        svg.addEventListener("wheel", e => {
+            e.preventDefault();
+            const zoomFactor = 1.1;
+            const scale = e.deltaY < 0 ? 1 / zoomFactor : zoomFactor;
+
+            const rect = svg.getBoundingClientRect();
+            const offsetX = e.clientX - rect.left;
+            const offsetY = e.clientY - rect.top;
+
+            const mx = offsetX / svg.clientWidth * viewBox.w + viewBox.x;
+            const my = offsetY / svg.clientHeight * viewBox.h + viewBox.y;
+
+            const newW = viewBox.w * scale;
+            const newH = viewBox.h * scale;
+
+            if (newW > MAX_ZOOM_WIDTH || newW < MIN_ZOOM_WIDTH) return;
+
+            viewBox.w = newW;
+            viewBox.h = newH;
+            viewBox.x = mx - (mx - viewBox.x) * scale;
+            viewBox.y = my - (my - viewBox.y) * scale;
+
+            updateViewBox();
+        });
+
+        document.getElementById("zoom-in").addEventListener("click", () => zoomBy(1 / 1.2));
+        document.getElementById("zoom-out").addEventListener("click", () => zoomBy(1.2));
+
+        function zoomBy(scale) {
+            const centerX = viewBox.x + viewBox.w / 2;
+            const centerY = viewBox.y + viewBox.h / 2;
+
+            const newW = viewBox.w * scale;
+            const newH = viewBox.h * scale;
+
+            if (newW > MAX_ZOOM_WIDTH || newW < MIN_ZOOM_WIDTH) return;
+
+            viewBox.w = newW;
+            viewBox.h = newH;
+            viewBox.x = centerX - viewBox.w / 2;
+            viewBox.y = centerY - viewBox.h / 2;
+
+            updateViewBox();
+        }
+
+        svg.style.cursor = "grab";
+        updateViewBox();
+        }
+
+
+  </script>
+</body>
+</html>
