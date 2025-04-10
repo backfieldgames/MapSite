@@ -4,6 +4,71 @@
   <meta charset="UTF-8" />
   <title>Purdue Dining Map</title>
   <style>
+
+#compass {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 60px;
+  height: 60px;
+  z-index: 10;
+}
+
+.compass-circle {
+  width: 100%;
+  height: 100%;
+  border: 2px solid #333;
+  border-radius: 50%;
+  position: relative;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+
+.label-n,
+.label-e,
+.label-s,
+.label-w {
+  position: absolute;
+  font-size: 12px;
+  font-weight: bold;
+  color: #333;
+}
+
+.label-n { top: 2px; left: 50%; transform: translateX(-50%); }
+.label-s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+.label-e { right: 2px; top: 50%; transform: translateY(-50%); }
+.label-w { left: 2px; top: 50%; transform: translateY(-50%); }
+
+
+    #legend {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: white;
+      padding: 8px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+      z-index: 10;
+    }
+
+    .legend-color {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      margin-right: 6px;
+      border: 1px solid #000;
+      vertical-align: middle;
+    }
+
+    .legend-color.open {
+      background-color: #b6e3b6;
+    }
+
+    .legend-color.closed {
+      background-color: #f4a5a5;
+    }
+
     body {
       margin: 0;
       font-family: Arial, sans-serif;
@@ -73,7 +138,7 @@
       <option value="Sunday">Sunday</option>
     </select>
     <label for="time-slider">Time:</label>
-    <input type="range" id="time-slider" min="360" max="1439" value="720" step="15" />
+    <input type="range" id="time-slider" min="0" max="1439" value="720" step="15" />
     <span id="current-time-label">12:00 PM</span>
   </div>
 
@@ -87,6 +152,22 @@
         <button id="zoom-in">+</button>
         <button id="zoom-out">−</button>
       </div>
+
+      <div id="compass">
+        <div class="compass-circle">
+          <div class="needle"></div>
+          <span class="label-n">N</span>
+          <span class="label-e">E</span>
+          <span class="label-s">S</span>
+          <span class="label-w">W</span>
+        </div>
+      </div>
+      
+      <div id="legend">
+        <div><span class="legend-color open"></span> Open</div>
+        <div><span class="legend-color closed"></span> Closed</div>
+      </div>
+
       <div id="svg-container"></div>
     </div>
   </div>
@@ -125,9 +206,9 @@
             Sunday: ["11:00-21:00"]
         },
         "Harrison Grill": {
-            Friday: ["17:00-01:00"],
-            Saturday: ["17:00-01:00"],
-            Sunday: ["17:00-01:00"]
+            Friday: ["17:00-24:00"],
+            Saturday: ["17:00-24:00"],
+            Sunday: ["17:00-24:00"]
         },
         "Panera": {
             Friday: ["09:00-20:00"],
@@ -229,7 +310,7 @@
 
     const buildingPositions = {
         "Earhart on the go": { x: 333, y: 319 },
-        "Windsor on the go": { x: 326, y: 322 },
+        "Windsor on the go": { x: 421, y: 322 },
         "Lawson on the go": { x: 461, y: 289 },
         "Ford on the go": { x: 418, y: 213 },
         "PMU restaurants": { x: 555, y: 324 },
@@ -249,8 +330,8 @@
         "3rd Street market": { x: 410, y: 289 },
         "Ford": { x: 419, y: 223 },
         "Wiley": { x: 398, y: 273 },
-        "Windsor": { x: 421, y: 329 },
-        "Earhart": { x: 200, y: 300 },
+        "Windsor": { x: 421, y: 305 },
+        "Earhart": { x: 339, y: 331 },
         "Hillenbrand": { x: 304, y: 304 },
         "One bowl/Sushi boss": { x: 362, y: 299 },
         "Pete’s Za": { x: 401, y: 239 }
